@@ -1,11 +1,8 @@
 !!! 5
-
 /[if lt IE 7]
 	%html{:class => "no-js lt-ie9 lt-ie8 lt-ie7", :lang => "en"}
-
 /[if IE 7]
 	%html{:class => "no-js lt-ie9 lt-ie8", :lang => "en"}
-
 /[if IE 8]
 	%html{:class => "no-js lt-ie9", :lang => "en"}
 
@@ -17,47 +14,115 @@
 
 	%meta{:name => "description", :content => ""}
 	%meta{:name => "viewport", :content => "width=device-width"}
-
 	%link{:rel => "stylesheet", :href => "site.css"}
 
 	%script{:src => "js/libs/modernizr-2.5.3.min.js"}
 
 %body
 	%header
-		%hgroup
-			%h1 Steven Bone
-			%h2 Web Developer
+		%h1
+			Steven Bone
+			%span Web Developer
+		%ul
+			%li
+				%a{:href => "mailto:steven@stevenbone.com"}Email
+			%li
+				%a{:href => "https://github.com/sbone"}Github
+			%li
+				%a{:href => "http://www.linkedin.com/pub/steven-bone/15/853/903"}LinkedIn
+
+
 	%div{:role => "main", :id => "container"}
-		%div{:class => "full-time"}
-			%header
-				%h1 As part of
-			%div{:class => "content"}
-				%div{:class => "employer"}
-					%header
-						%hgroup
-							%h1
-								%a{:href => "http://canvas.is"}Canvas
-							%h2
-								Front-end Web Developer
-								%span 8/11-Present
-							%p Part of a small team producing desktop and mobile interfaces for high-profile clients
+		%div{:class => "full-time work"}
+			%div{:class => "employer"}
+				%header
+					%hgroup
+						%h1
+							%a{:href => "http://canvas.is"}Canvas
+						%h2
+							Front-end Web Developer
+							%span 8/11-Present
+						%p Part of a small team producing desktop and mobile interfaces for high-profile clients such as Showtime Sports, Credit Suisse, and Stribling.
+						%h4 Featured Work:
+				%div{:class => "featured"}
+					%article
+						%div{:class => "project-info"}
+							%header
+								%hgroup
+									%h3 Stribling
+									%p Luxury real estate brand in New York City.<br />Desktop and mobile views of site developed side-by-side.
+							%ul
+								%li HTML5
+								%li CSS3
+								%li jQuery
+								%li Ruby on Rails
+						%div{:class => "project-images"}
+							%img{:src => "img/stribling-mobile.jpg"}
+							%img{:src => "img/stribling-desktop.jpg"}
+					%article
+						%div{:class => "project-info"}
+							%header
+								%hgroup
+									%h3 Credit Suisse HOLT Valuation Challenge
+									%p Invite-only interactive quiz for selected university students
+							%ul
+								%li HTML5
+								%li CSS3
+								%li jQuery
+								%li Ruby on Rails
+						%div{:class => "project-images"}
+							%img{:src => "img/holt-login.png"}
+							%img{:src => "img/holt-game.png"}
 
-				%div{:class => "employer"}
-					%header
-						%hgroup
-							%h1
-								%a{:href => "http://newpaltz.edu"}SUNY New Paltz
-							%h2
-								Web Developer
-								%span 12/09-7/11
-							%p
-								Half of a team responsible for all front-end aspects of
-								%a{:href => "http://newpaltz.edu"}newpaltz.edu
+			%div{:class => "employer"}
+				%header
+					%hgroup
+						%h1
+							%a{:href => "http://newpaltz.edu"}SUNY New Paltz
+						%h2
+							Web Developer
+							%span 12/09-7/11
+						%p
+							Half of a team responsible for all front-end aspects of
+							%a{:href => "http://newpaltz.edu"}newpaltz.edu
+						%h4 Featured Work:
+				%div{:class => "featured"}
+					%article
+						%div{:class => "project-info"}
+							%header
+								%hgroup
+									%h3 Admissions Viewbook & New Paltz is Green
+							%ul
+								%li HTML5
+								%li CSS3
+								%li jQuery
+						%div{:class => "project-images"}
+							%img{:src => "img/newpaltz-green.jpg"}
+							%img{:src => "img/newpaltz-viewbook.jpg"}
 
-		%div{:class => "freelance"}
-			%header
-				%h1 As a freelancer
-			%div{:class => "content"}
+			%div{:class => "employer"}
+				%header
+					%hgroup
+						%h1 Selected Freelance
+						%p Development and Design
+
+				%div{:class => "featured"}
+					%article
+						%div{:class => "project-info"}
+							%header
+								%hgroup
+									%h3
+										%a{:href => "http://expresoritmico.com/"}Expreso Ritmico
+										&
+										%a{:href => "http://creativelicense.info/"}Creative License
+							%ul
+								%li HTML5
+								%li CSS3
+								%li jQuery
+								%li Perch CMS
+						%div{:class => "project-images"}
+							%img{:src => "img/expreso-ritmico.jpg"}
+							%img{:src => "img/creative-license.jpg"}
 	%footer
 
 	%script{:src => "//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"}
