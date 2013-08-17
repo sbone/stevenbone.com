@@ -1,0 +1,62 @@
+// Colors
+$darker: #021B21;
+$dark: #032C36;
+$medium: #065F73;
+$light: #E8DFD6;
+$lightest: #B31D14;
+
+* {
+	box-sizing: border-box;
+}
+html {
+    font-family: sans-serif; /* 1 */
+    -ms-text-size-adjust: 100%; /* 2 */
+    -webkit-text-size-adjust: 100%; /* 2 */
+}
+body {
+	margin: 0;
+	font-family: Georgia, serif;
+	font-size: #{(14/16)}em;
+	line-height: 1.4;
+	background: $light;
+	color: $dark;
+	text-shadow: 1px 1px 1px rgba(255, 255, 255, .1);
+	@media only screen and (min-width: 410px) {
+		font-size: 1em;
+	}
+}
+h1 {
+	font-size: 1em;
+	margin: 0;
+	font-weight: normal;
+}
+p {
+	margin: 0;
+}
+a {
+	text-decoration: none;
+	color: $medium;
+	&:focus {
+    outline: thin dotted;
+	}
+	&:hover {
+		color: $lightest;
+	}
+}
+b,
+strong {
+    font-weight: bold;
+}
+small {
+    font-size: 80%;
+}
+
+// layout
+.container {
+	margin: 0 auto;
+	padding: 2em .8em;
+	@media only screen and (min-width: 410px) {
+		padding: 2em 1em;
+		width: 350px;
+	}
+}
