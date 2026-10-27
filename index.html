@@ -109,7 +109,12 @@ I dropped my small bag of doritos ▲▼▶◀▼▲▲▼▶▼▲▲▼▶
 		border-radius: 50%;
 		background: #fff4c766;
 		box-shadow: 0 0 6px 1px #ffe6a633;
+		transition: background-color 40ms ease-out, box-shadow 40ms ease-out;
 		animation: fade 1050ms ease-out forwards;
+	}
+	.tile:nth-last-child(-n + 2) {
+		background: #fffef2;
+		box-shadow: 0 0 3px 1px #fffef2cc, 0 0 12px 3px #ffd76b99;
 	}
 	@keyframes fade {
 		0%, 100% { opacity: 0; }
@@ -138,11 +143,12 @@ I dropped my small bag of doritos ▲▼▶◀▼▲▲▼▶▼▲▲▼▶
 <body>
   <div class="background" aria-hidden="true"></div>
   <h1>Steven Bone</h1>
-  <p>Professional software engineer</p>
+  <p>Senior Product Engineer</p>
 <ul>
 <li><a href="mailto:steven@stevenbone.com" title="email">email</a></li>
 <li><a href="https://github.com/sbone">github</a></li>
 <li><a href="https://www.linkedin.com/in/steven-bone-90385315">linkedin</a></li>
+<li><a href="https://qualityti.me">Quality Time</a></li>
 </ul>
 <script>
   const background = document.querySelector('.background');
