@@ -40,10 +40,18 @@ I dropped my small bag of doritos ▲▼▶◀▼▲▲▼▶▼▲▲▼▶
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	
   <style>
+	html {
+		overscroll-behavior: none;
+	}
 	body {
+		box-sizing: border-box;
+		min-height: 100vh;
+		min-height: 100svh;
+		margin: 0;
 		padding: 2rem 1em;
-		background: #1e1e1e;
-		font-family: sans-serif;
+		isolation: isolate;
+		background: #10151e;
+		font-family: 'Courier New', Courier, monospace;
 		color: #fffafa;
 		text-shadow: 1px 1px 2px #232b2b;
 	}
@@ -51,24 +59,84 @@ I dropped my small bag of doritos ▲▼▶◀▼▲▲▼▶▼▲▲▼▶
 		font-weight: 300;
 		line-height: 1;
 		font-size: 36px;
+		transform: rotate(-1deg);
 	}
 	p {
 		font-size: 20px;
 		line-height: 1.2;
+		transform: translateX(4px) rotate(0.4deg);
 	}
 	h1, p {
 		margin: 0;
 		padding: 0;
+	}
+	h1, p, ul {
+		transform-origin: left center;
 	}
 	a {
 		color: #fffafa;
 	}
 	ul {
 		list-style-type: square;
+		transform: rotate(-0.6deg);
+	}
+	.background {
+		--tile-size: 5px;
+		position: fixed;
+		inset: 0;
+		z-index: -1;
+		overflow: hidden;
+		pointer-events: none;
+		background: linear-gradient(155deg, #487743, #3c5049 35%, #514052 65%, #884568);
+	}
+	.background.interactive {
+		pointer-events: auto;
+		touch-action: pinch-zoom;
+	}
+	.background::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		opacity: 0.04;
+		/* Static grain softens visible bands between gradient colors. */
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpath fill='white' filter='url(%23noise)' d='M0 0h128v128H0z'/%3E%3C/svg%3E");
+	}
+	.tile {
+		position: absolute;
+		pointer-events: none;
+		width: var(--tile-size);
+		height: var(--tile-size);
+		border-radius: 50%;
+		background: #fff4c766;
+		box-shadow: 0 0 6px 1px #ffe6a633;
+		animation: fade 1050ms ease-out forwards;
+	}
+	@keyframes fade {
+		0%, 100% { opacity: 0; }
+		5% { opacity: 1; }
+	}
+	.tile[data-reward]::after {
+		content: attr(data-reward);
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		font: 20px/1 sans-serif;
+		text-shadow: none;
+		animation: reward 1050ms ease-out forwards;
+	}
+	@keyframes reward {
+		0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+		10% { opacity: 1; transform: translate(-50%, -12px) scale(1.35); }
+		22% { opacity: 1; transform: translate(-50%, -20px) scale(1.1); }
+		100% { opacity: 0; transform: translate(-50%, -64px) scale(1); }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.tile { display: none; animation: none; }
 	}
   </style>
 </head>
 <body>
+  <div class="background" aria-hidden="true"></div>
   <h1>Steven Bone</h1>
   <p>Professional software engineer</p>
 <ul>
@@ -76,5 +144,68 @@ I dropped my small bag of doritos ▲▼▶◀▼▲▲▼▶▼▲▲▼▶
 <li><a href="https://github.com/sbone">github</a></li>
 <li><a href="https://www.linkedin.com/in/steven-bone-90385315">linkedin</a></li>
 </ul>
+<script>
+  const background = document.querySelector('.background');
+  const tileSize = parseFloat(getComputedStyle(background).getPropertyValue('--tile-size'));
+  const motion = matchMedia('(prefers-reduced-motion: reduce)');
+  const activeTiles = new Set();
+  const rewards = ['👐', '😎', '👽', '🛸', '🪙'];
+  let previous = null;
+  function updateMotion() {
+    background.classList.toggle('interactive', !motion.matches && 'PointerEvent' in window);
+    background.replaceChildren();
+    activeTiles.clear();
+    previous = null;
+  }
+  updateMotion();
+  motion.addEventListener('change', updateMotion);
+  document.documentElement.addEventListener('pointerleave', () => { previous = null; });
+  window.addEventListener('blur', () => { previous = null; });
+  document.addEventListener('pointerup', () => { previous = null; });
+  document.addEventListener('pointercancel', () => { previous = null; });
+
+  function addTile(clientX, clientY) {
+    const x = Math.floor(clientX / tileSize) * tileSize;
+    const y = Math.floor(clientY / tileSize) * tileSize;
+    const key = `${x},${y}`;
+    if (activeTiles.has(key)) return;
+
+    const tile = document.createElement('span');
+    tile.className = 'tile';
+    tile.style.left = `${x}px`;
+    tile.style.top = `${y}px`;
+    if (Math.random() < 0.01) {
+      tile.dataset.reward = rewards[Math.floor(Math.random() * rewards.length)];
+    }
+    activeTiles.add(key);
+    background.append(tile);
+    const remove = () => {
+      tile.remove();
+      activeTiles.delete(key);
+    };
+    tile.addEventListener('animationend', remove, { once: true });
+    tile.addEventListener('animationcancel', remove, { once: true });
+  }
+
+  function drawTrail(event) {
+    if (motion.matches || !event.isPrimary) return;
+
+    const start = previous ?? event;
+    const dx = event.clientX - start.clientX;
+    const dy = event.clientY - start.clientY;
+    // Fill gaps when the cursor crosses several cells between pointer events.
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (tileSize / 2)));
+    for (let step = 1; step <= steps; step++) {
+      addTile(start.clientX + dx * step / steps, start.clientY + dy * step / steps);
+    }
+    previous = { clientX: event.clientX, clientY: event.clientY };
+  }
+
+  document.addEventListener('pointermove', drawTrail, { passive: true });
+  document.addEventListener('pointerdown', (event) => {
+    previous = null;
+    drawTrail(event);
+  }, { passive: true });
+</script>
 </body>
 </html>
