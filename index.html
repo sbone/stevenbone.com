@@ -81,7 +81,6 @@ I dropped my small bag of doritos ▲▼▶◀▼▲▲▼▶▼▲▲▼▶
 		transform: rotate(-0.6deg);
 	}
 	.background {
-		--tile-size: 5px;
 		position: fixed;
 		inset: 0;
 		z-index: -1;
@@ -101,30 +100,16 @@ I dropped my small bag of doritos ▲▼▶◀▼▲▲▼▶▼▲▲▼▶
 		/* Static grain softens visible bands between gradient colors. */
 		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpath fill='white' filter='url(%23noise)' d='M0 0h128v128H0z'/%3E%3C/svg%3E");
 	}
-	.tile {
+	.trail {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+	.reward {
 		position: absolute;
 		pointer-events: none;
-		width: var(--tile-size);
-		height: var(--tile-size);
-		border-radius: 50%;
-		background: #fff4c766;
-		box-shadow: 0 0 6px 1px #ffe6a633;
-		transition: background-color 40ms ease-out, box-shadow 40ms ease-out;
-		animation: fade 1050ms ease-out forwards;
-	}
-	.tile:nth-last-child(-n + 2) {
-		background: #fffef2;
-		box-shadow: 0 0 3px 1px #fffef2cc, 0 0 12px 3px #ffd76b99;
-	}
-	@keyframes fade {
-		0%, 100% { opacity: 0; }
-		5% { opacity: 1; }
-	}
-	.tile[data-reward]::after {
-		content: attr(data-reward);
-		position: absolute;
-		left: 50%;
-		top: 50%;
 		font: 20px/1 sans-serif;
 		text-shadow: none;
 		animation: reward 1050ms ease-out forwards;
@@ -135,8 +120,40 @@ I dropped my small bag of doritos ▲▼▶◀▼▲▲▼▶▼▲▲▼▶
 		22% { opacity: 1; transform: translate(-50%, -20px) scale(1.1); }
 		100% { opacity: 0; transform: translate(-50%, -64px) scale(1); }
 	}
+	.burst {
+		position: absolute;
+		pointer-events: none;
+	}
+	.burst::before {
+		content: '';
+		position: absolute;
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+		background: #fffef2;
+		box-shadow: 0 0 10px 3px #fff4c7, 0 0 24px 8px #ffd76b99;
+		animation: flash 300ms ease-out forwards;
+	}
+	.spark {
+		position: absolute;
+		width: 3px;
+		height: 3px;
+		border-radius: 50%;
+		background: #fff4c7;
+		box-shadow: 0 0 5px 1px #ffd76b;
+		animation: spark 650ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	}
+	@keyframes flash {
+		from { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+		to { opacity: 0; transform: translate(-50%, -50%) scale(1.8); }
+	}
+	@keyframes spark {
+		from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+		20% { opacity: 1; }
+		to { opacity: 0; transform: translate(var(--x), var(--y)) scale(0.3); }
+	}
 	@media (prefers-reduced-motion: reduce) {
-		.tile { display: none; animation: none; }
+		.trail, .reward, .burst { display: none; animation: none; }
 	}
   </style>
 </head>
@@ -151,67 +168,201 @@ I dropped my small bag of doritos ▲▼▶◀▼▲▲▼▶▼▲▲▼▶
 <li><a href="https://qualityti.me">Quality Time</a></li>
 </ul>
 <script>
+(() => {
   const background = document.querySelector('.background');
-  const tileSize = parseFloat(getComputedStyle(background).getPropertyValue('--tile-size'));
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  const atlas = document.createElement('canvas');
+  const paint = atlas.getContext('2d');
+  if (!context || !paint || !('PointerEvent' in window)) return;
+
+  canvas.className = 'trail';
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
-  const activeTiles = new Set();
   const rewards = ['👐', '😎', '👽', '🛸', '🪙'];
-  let previous = null;
-  function updateMotion() {
-    background.classList.toggle('interactive', !motion.matches && 'PointerEvent' in window);
-    background.replaceChildren();
-    activeTiles.clear();
-    previous = null;
+  const lifetime = 1050;
+  const cellSize = 5;
+  const spriteSize = 32;
+  const shades = 64;
+  const colors = [
+    [0, 255, 254, 242], [0.2, 255, 244, 133], [0.4, 180, 255, 106],
+    [0.65, 255, 115, 216], [0.85, 255, 75, 72], [1, 255, 75, 72]
+  ];
+  let points = [], sparks = [], previous = null, frame = 0, lastSpark = 0;
+
+  // Bake the color and glow once at 2x resolution; no per-frame blur or gradients.
+  atlas.width = spriteSize * shades * 2;
+  atlas.height = spriteSize * 2;
+  paint.scale(2, 2);
+  for (let index = 0; index < shades; index++) {
+    const age = index / (shades - 1);
+    const stop = Math.max(1, colors.findIndex(color => color[0] >= age));
+    const a = colors[stop - 1], b = colors[stop];
+    const mix = (age - a[0]) / (b[0] - a[0]);
+    const rgb = a.slice(1).map((value, channel) => Math.round(value + (b[channel + 1] - value) * mix)).join(',');
+    const x = index * spriteSize + spriteSize / 2;
+    const glow = paint.createRadialGradient(x, 16, 0, x, 16, 9);
+    glow.addColorStop(0, `rgba(${rgb},0.4)`);
+    glow.addColorStop(0.25, `rgba(${rgb},0.12)`);
+    glow.addColorStop(1, `rgba(${rgb},0)`);
+    paint.globalAlpha = 1 - age;
+    paint.fillStyle = glow;
+    paint.fillRect(index * spriteSize, 0, spriteSize, spriteSize);
+    paint.fillStyle = `rgb(${rgb})`;
+    paint.beginPath();
+    paint.arc(x, 16, 2.5, 0, Math.PI * 2);
+    paint.fill();
   }
+
+  function clear() {
+    cancelAnimationFrame(frame);
+    frame = 0;
+    points = [];
+    sparks = [];
+    lastSpark = 0;
+    previous = null;
+    context.clearRect(0, 0, innerWidth, innerHeight);
+    background.replaceChildren(canvas);
+  }
+
+  function resize() {
+    const scale = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(innerWidth * scale);
+    canvas.height = Math.round(innerHeight * scale);
+    context.setTransform(scale, 0, 0, scale, 0, 0);
+    clear();
+  }
+
+  function updateMotion() {
+    clear();
+    background.classList.toggle('interactive', !motion.matches);
+  }
+
+  function wake() {
+    if (!frame) frame = requestAnimationFrame(draw);
+  }
+
+  function stamp(x, y, time, now) {
+    const age = (now - time) / lifetime;
+    if (age < 0 || age >= 1) return;
+    const shade = Math.floor(age * (shades - 1));
+    context.drawImage(atlas, shade * 64, 0, 64, 64, x - 16, y - 16, 32, 32);
+  }
+
+  function draw(now) {
+    frame = 0;
+    points = points.filter(point => now - point.time < lifetime);
+    sparks = sparks.filter(spark => now - spark.time < 650);
+    context.clearRect(0, 0, innerWidth, innerHeight);
+    let length = 0;
+    for (let index = 1; index < points.length; index++) {
+      if (!points[index].start) length += Math.hypot(points[index].x - points[index - 1].x, points[index].y - points[index - 1].y);
+    }
+    // Fill fixed cells along the curve, with a bounded amount of sampling work.
+    const spacing = Math.max(cellSize / 2, length / 2500);
+    const columns = Math.ceil(innerWidth / cellSize);
+    const rows = Math.ceil(innerHeight / cellSize);
+    const cells = new Map();
+    for (let index = 0; index < points.length; index++) {
+      const point = points[index];
+      const before = index && !point.start ? points[index - 1] : point;
+      const after = points[index + 1] && !points[index + 1].start ? points[index + 1] : point;
+      const sx = (before.x + point.x) / 2, sy = (before.y + point.y) / 2;
+      const ex = (point.x + after.x) / 2, ey = (point.y + after.y) / 2;
+      const steps = Math.max(1, Math.ceil((Math.hypot(point.x - sx, point.y - sy) + Math.hypot(ex - point.x, ey - point.y)) / spacing));
+      // Midpoint quadratics meet smoothly while the final segment reaches the pointer.
+      for (let step = 1; step <= steps; step++) {
+        const t = step / steps, u = 1 - t;
+        const x = u * u * sx + 2 * u * t * point.x + t * t * ex;
+        const y = u * u * sy + 2 * u * t * point.y + t * t * ey;
+        const time = u * u * (before.time + point.time) / 2 + 2 * u * t * point.time + t * t * (point.time + after.time) / 2;
+        const column = Math.floor(x / cellSize), row = Math.floor(y / cellSize);
+        if (column >= 0 && column < columns && row >= 0 && row < rows) cells.set(row * columns + column, time);
+      }
+    }
+    for (const [cell, time] of cells) {
+      stamp((cell % columns + 0.5) * cellSize, (Math.floor(cell / columns) + 0.5) * cellSize, time, now);
+    }
+    context.globalAlpha = 0.7;
+    for (const spark of sparks) {
+      const age = Math.max(0, (now - spark.time) / 650);
+      const shade = Math.floor(age * (shades - 1));
+      const x = spark.x + spark.vx * age;
+      const y = spark.y + spark.vy * age + 50 * age * age;
+      context.drawImage(atlas, shade * 64, 0, 64, 64, x - 8, y - 8, 16, 16);
+    }
+    context.globalAlpha = 1;
+    if (points.length || sparks.length) wake();
+  }
+
+  function addReward(point) {
+    const reward = document.createElement('span');
+    reward.className = 'reward';
+    reward.textContent = rewards[Math.floor(Math.random() * rewards.length)];
+    reward.style.left = `${point.x}px`;
+    reward.style.top = `${point.y}px`;
+    background.append(reward);
+    reward.addEventListener('animationend', () => reward.remove(), { once: true });
+  }
+
+  function addBurst(x, y) {
+    const burst = document.createElement('div');
+    burst.className = 'burst';
+    burst.style.left = `${x}px`;
+    burst.style.top = `${y}px`;
+    for (let index = 0; index < 8; index++) {
+      const spark = document.createElement('span');
+      const angle = (index + Math.random() * 0.4) * Math.PI / 4;
+      const distance = 28 + Math.random() * 28;
+      spark.className = 'spark';
+      spark.style.setProperty('--x', `${Math.cos(angle) * distance}px`);
+      spark.style.setProperty('--y', `${Math.sin(angle) * distance}px`);
+      burst.append(spark);
+    }
+    background.append(burst);
+    burst.addEventListener('animationend', event => {
+      if (event.animationName === 'spark') burst.remove();
+    });
+  }
+
+  function track(event) {
+    if (motion.matches || !event.isPrimary || document.hidden) return;
+    const now = performance.now();
+    if (previous && now - previous.time > lifetime) previous = null;
+    const samples = event.getCoalescedEvents?.();
+    for (const sample of samples?.length ? samples : [event]) {
+      const point = { x: sample.clientX, y: sample.clientY, time: Math.min(now, sample.timeStamp || now), start: !previous };
+      const distance = previous ? Math.hypot(point.x - previous.x, point.y - previous.y) : 0;
+      if (previous && distance < 1) continue;
+      points.push(point);
+      previous = point;
+      // A light, capped shower; particles share the trail's cached glow and fade.
+      if (distance && point.time - lastSpark >= 25 && sparks.length < 32) {
+        sparks.push({ x: point.x, y: point.y, time: point.time, vx: (Math.random() - 0.5) * 28, vy: 15 + Math.random() * 15 });
+        lastSpark = point.time;
+      }
+      // Keep the 1% per 5px reward chance independent of pointer event frequency.
+      if (Math.random() < 1 - 0.99 ** (distance / 5)) addReward(point);
+    }
+    if (points.length > 512) points.splice(0, points.length - 512);
+    wake();
+  }
+
+  resize();
   updateMotion();
+  window.addEventListener('resize', resize);
+  window.addEventListener('blur', clear);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) clear(); });
   motion.addEventListener('change', updateMotion);
   document.documentElement.addEventListener('pointerleave', () => { previous = null; });
-  window.addEventListener('blur', () => { previous = null; });
   document.addEventListener('pointerup', () => { previous = null; });
   document.addEventListener('pointercancel', () => { previous = null; });
-
-  function addTile(clientX, clientY) {
-    const x = Math.floor(clientX / tileSize) * tileSize;
-    const y = Math.floor(clientY / tileSize) * tileSize;
-    const key = `${x},${y}`;
-    if (activeTiles.has(key)) return;
-
-    const tile = document.createElement('span');
-    tile.className = 'tile';
-    tile.style.left = `${x}px`;
-    tile.style.top = `${y}px`;
-    if (Math.random() < 0.01) {
-      tile.dataset.reward = rewards[Math.floor(Math.random() * rewards.length)];
-    }
-    activeTiles.add(key);
-    background.append(tile);
-    const remove = () => {
-      tile.remove();
-      activeTiles.delete(key);
-    };
-    tile.addEventListener('animationend', remove, { once: true });
-    tile.addEventListener('animationcancel', remove, { once: true });
-  }
-
-  function drawTrail(event) {
-    if (motion.matches || !event.isPrimary) return;
-
-    const start = previous ?? event;
-    const dx = event.clientX - start.clientX;
-    const dy = event.clientY - start.clientY;
-    // Fill gaps when the cursor crosses several cells between pointer events.
-    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (tileSize / 2)));
-    for (let step = 1; step <= steps; step++) {
-      addTile(start.clientX + dx * step / steps, start.clientY + dy * step / steps);
-    }
-    previous = { clientX: event.clientX, clientY: event.clientY };
-  }
-
-  document.addEventListener('pointermove', drawTrail, { passive: true });
-  document.addEventListener('pointerdown', (event) => {
+  document.addEventListener('pointermove', track, { passive: true });
+  document.addEventListener('pointerdown', event => {
     previous = null;
-    drawTrail(event);
+    track(event);
+    if (!motion.matches && event.isPrimary && event.button === 0) addBurst(event.clientX, event.clientY);
   }, { passive: true });
+})();
 </script>
 </body>
 </html>
